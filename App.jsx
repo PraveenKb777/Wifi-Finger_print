@@ -117,7 +117,14 @@ const JsonReader = () => {
         );
 
       case SCREENS.SCANPAGE:
-        return <ScanScreen />;
+        return (
+          <ScanScreen
+            coor={setselectedFinalCoor}
+            room={selectedRoom}
+            roomList={jsonData.Room}
+            changeScreen={changeScreen}
+          />
+        );
     }
   };
 

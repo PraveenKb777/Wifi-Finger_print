@@ -52,11 +52,23 @@ const RoomList = ({list, selectRoom = () => {}, changeScreen}) => {
   };
 
   return (
-    <ScrollView style={{flex: 1}}>
-      {list?.map((e, i) => {
-        return <Items data={e} key={e.Room_Unique_ID} />;
-      })}
-    </ScrollView>
+    <>
+      <View
+        style={{
+          width: '100%',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: 55,
+          backgroundColor: 'white',
+        }}>
+        <Text style={{color: 'black'}}>Select a Room</Text>
+      </View>
+      <ScrollView style={{flex: 1}}>
+        {list?.map((e, i) => {
+          return <Items data={e} key={e.Room_Unique_ID} />;
+        })}
+      </ScrollView>
+    </>
   );
 };
 

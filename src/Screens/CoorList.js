@@ -33,29 +33,41 @@ const CoorList = ({list, changeScreen, setSetselectedFinalCoor}) => {
   }, []);
 
   return (
-    <ScrollView style={{flex: 1}}>
-      {list?.map(e => {
-        return (
-          <View
-            key={e.Coordinate_Unique_ID}
-            style={{
-              marginTop: 10,
-              marginBottom: 5,
-              borderRadius: 15,
-              overflow: 'hidden',
-              marginHorizontal: 15,
-            }}>
-            <Button
-              title={`(${e.Grid_Point[0]},${e.Grid_Point[1]})`}
-              onPress={() => {
-                setSetselectedFinalCoor(e);
-                changeScreen(SCREENS.SCANPAGE);
-              }}
-            />
-          </View>
-        );
-      })}
-    </ScrollView>
+    <>
+      <View
+        style={{
+          width: '100%',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: 55,
+          backgroundColor: 'white',
+        }}>
+        <Text style={{color: 'black'}}>Select a Coordinate</Text>
+      </View>
+      <ScrollView style={{flex: 1}}>
+        {list?.map(e => {
+          return (
+            <View
+              key={e.Coordinate_Unique_ID}
+              style={{
+                marginTop: 10,
+                marginBottom: 5,
+                borderRadius: 15,
+                overflow: 'hidden',
+                marginHorizontal: 15,
+              }}>
+              <Button
+                title={`(${e.Grid_Point[0]},${e.Grid_Point[1]})`}
+                onPress={() => {
+                  setSetselectedFinalCoor(e);
+                  changeScreen(SCREENS.SCANPAGE);
+                }}
+              />
+            </View>
+          );
+        })}
+      </ScrollView>
+    </>
   );
 };
 
