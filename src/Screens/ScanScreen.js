@@ -14,6 +14,7 @@ import {request, PERMISSIONS} from 'react-native-permissions';
 import DeviceInfo from 'react-native-device-info';
 import CounterComponent from './PlusMinus';
 import {SCREENS} from '../../App';
+import * as ScopedStorage from 'react-native-scoped-storage';
 
 import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
@@ -105,7 +106,13 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
       const wifiArray = await WifiManager.reScanAndLoadWifiList();
       const date = new Date();
       const finalWifiList = wifiArray.map(e => {
-        let a = `${deviceDate?.uId},${finalCoor.Grid_Point[0]},${finalCoor.Grid_Point[1]},${e.SSID},${e.BSSID},${e.level},${e.frequency},${date},${roomDetails.Room_Unique_ID},${roomDetails.Room},${finalCoor.Coordinate_Unique_ID}`;
+        let a = `${deviceDate?.modal + deviceDate?.uId},${
+          finalCoor.Grid_Point[0]
+        },${finalCoor.Grid_Point[1]},${e.SSID},${e.BSSID},${e.level},${
+          e.frequency
+        },${date},${roomDetails.Room_Unique_ID},${roomDetails.Room},${
+          finalCoor.Coordinate_Unique_ID
+        }`;
         return a;
       });
       setWifiList(e => [...e, ...finalWifiList]);
@@ -142,6 +149,90 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
     return () => backHandler.remove();
   }, []);
 
+  const [action, setAction] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [selectedFolderPath, setSelectedFolderPath] = useState('');
+
+  const handleFileSelection = async () => {
+    try {
+      // Ask the user whether to create a new file or update an existing one
+      Alert.alert('Select Action', 'Do you want to create a new file?', [
+        {
+          text: 'Create New',
+          onPress: () => setAction('create'),
+        },
+      ]);
+    } catch (err) {
+      // Handle error
+      console.log(err);
+    }
+  };
+
+  const handleCreateNewFile = async () => {
+    if (!fileName) {
+      Alert.alert('Error', 'Please enter a file name.');
+      return;
+    }
+    let dir;
+    try {
+      // Use DocumentPicker to select a folder where the file should be saved
+      dir = await ScopedStorage.openDocumentTree(true);
+      console.log('>>>>', dir.uri);
+      if (dir.uri) {
+        setSelectedFolderPath(dir.uri);
+      } else {
+        // User canceled folder selection
+        return;
+      }
+    } catch (error) {
+      console.error('Error selecting folder:', error);
+      return;
+    }
+
+    // Check if the selected folder path is valid
+    if (!dir.uri) {
+      Alert.alert('Error', 'Please select a folder to save the file.');
+      return;
+    }
+
+    let fileList = await ScopedStorage.listFiles(dir.uri);
+    console.log(fileList);
+
+    let isFilePresent = fileList.find(e => {
+      return e.name === `${fileName}.csv`;
+    });
+    let fileContent = '';
+    for (let i = 0; i < wifiList.length; i++) {
+      fileContent += `\n${wifiList[i]}`;
+    }
+    if (!isFilePresent) {
+      fileContent =
+        'deviceID,x,y,SSID,BSSID,level,frequency,TimeStamp,RoomID,RoomName,Coordiante ID' +
+        fileContent;
+    }
+
+    // Perform your file creation logic here, e.g., write file content using RNFS
+    try {
+      await ScopedStorage.writeFile(
+        dir.uri,
+        fileContent,
+        `${fileName}.csv`,
+        'text/csv',
+
+        'utf8',
+        true,
+      );
+      Alert.alert(
+        'Success',
+        `File "${fileName}.csv" has been created in ${dir.uri}`,
+        setWifiList([]),
+      );
+    } catch (error) {
+      console.error('Error creating file:', error);
+      Alert.alert('Error', 'Failed to create the file.');
+    }
+  };
+
   return (
     <>
       <View style={{flex: 1}}>
@@ -153,6 +244,27 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
             disabled={onscanning}
           />
         </View>
+        <View style={{paddingHorizontal: 70}}>
+          <Button
+            title="Create a file"
+            onPress={handleFileSelection}
+            disabled={onscanning}
+          />
+        </View>
+
+        {action === 'create' && (
+          <>
+            <TextInput
+              placeholder="Enter a file name"
+              onChangeText={text => setFileName(text)}
+              value={fileName}
+            />
+            <Button
+              title="Select Folder & Create File"
+              onPress={handleCreateNewFile}
+            />
+          </>
+        )}
 
         {isScanning || (onscanning && <Text>Scanning...</Text>)}
         <ScrollView style={{flex: 1}}>
