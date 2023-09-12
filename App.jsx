@@ -1,10 +1,17 @@
-import React, {useEffect, useState} from 'react';
-import {View, Text, Button, ScrollView, SafeAreaView} from 'react-native';
-import DocumentPicker from 'react-native-document-picker';
-import RNFS from 'react-native-fs';
-import RoomList from './src/Screens/RoomList';
-import CoorList from './src/Screens/CoorList';
-import ScanScreen from './src/Screens/ScanScreen';
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  Button,
+  ScrollView,
+  SafeAreaView,
+  Alert,
+} from "react-native";
+import DocumentPicker from "react-native-document-picker";
+import RNFS from "react-native-fs";
+import RoomList from "./src/Screens/RoomList";
+import CoorList from "./src/Screens/CoorList";
+import ScanScreen from "./src/Screens/ScanScreen";
 
 export const SCREENS = {
   HOME: 0,
@@ -18,17 +25,17 @@ const JsonReader = () => {
   const [jsonData, setJsonData] = useState(null);
   const [activeScreen, setActiveScreen] = useState(SCREENS.HOME);
 
-  const [selectedRoom, setSelectedRoom] = useState('');
+  const [selectedRoom, setSelectedRoom] = useState("");
 
   const [setselectedRoomCoor, setSetselectedRoomCoor] = useState([]);
   const [setselectedFinalCoor, setSetselectedFinalCoor] = useState({
-    Coordinate_Unique_ID: '',
-    Grid_Point: ['x', 'y'],
-    Room_Unique_ID: '3',
+    Coordinate_Unique_ID: "",
+    Grid_Point: ["x", "y"],
+    Room_Unique_ID: "3",
   });
 
   useEffect(() => {
-    let data = jsonData?.Coordinates.filter(e => {
+    let data = jsonData?.Coordinates.filter((e) => {
       return e.Room_Unique_ID === selectedRoom;
     });
 
@@ -45,16 +52,16 @@ const JsonReader = () => {
       });
 
       if (
-        result[0].type === 'text/plain' ||
-        result[0].type === 'application/json'
+        result[0].type === "text/plain" ||
+        result[0].type === "application/json"
       ) {
         // Use react-native-fs to read the selected JSON file
-        const content = await RNFS.readFile(result[0].uri, 'utf8');
+        const content = await RNFS.readFile(result[0].uri, "utf8");
         const parsedJson = JSON.parse(content);
 
         setJsonData(parsedJson);
       } else {
-        alert('Please select a JSON file.');
+        Alert.alert("Please select a JSON file.");
       }
     } catch (err) {
       if (DocumentPicker.isCancel(err)) {
@@ -65,19 +72,40 @@ const JsonReader = () => {
     }
   };
 
-  const selectRoom = id => {
+  const selectRoom = (id) => {
     setSelectedRoom(id);
   };
 
-  const changeScreen = screenName => {
+  const changeScreen = (screenName) => {
     setActiveScreen(screenName);
   };
 
-  const switchScreen = screnName => {
+  const ButtonMemo = useCallback(() => {
+    let i = null;
+    try {
+      jsonData?.Room.length &&
+        (i = (
+          <Button
+            title="Can We Proceed to Select ROOM"
+            onPress={() => {
+              setActiveScreen(SCREENS.ROOMLIST);
+              console.log("called");
+            }}
+          />
+        ));
+    } catch (err) {
+      Alert.alert(
+        "Error Guys",
+        "Please Verify the file you selected Either it dose not have the formate you give LIKE {\nRoom:[...],\nCoordinates:[...]\n}"
+      );
+    }
+  }, [jsonData]);
+
+  const switchScreen = (screnName) => {
     switch (screnName) {
       case SCREENS.HOME:
         return (
-          <View style={{flex: 1}}>
+          <View style={{ flex: 1 }}>
             <Button title="Pick JSON File" onPress={pickDocument} />
 
             <ScrollView>
@@ -87,15 +115,7 @@ const JsonReader = () => {
                 <Text>No JSON data selected.</Text>
               )}
             </ScrollView>
-            {jsonData?.Room.length && (
-              <Button
-                title="Can We Proceed to Select ROOM"
-                onPress={() => {
-                  setActiveScreen(SCREENS.ROOMLIST);
-                  console.log('called');
-                }}
-              />
-            )}
+            <ButtonMemo />
           </View>
         );
 
@@ -129,7 +149,9 @@ const JsonReader = () => {
   };
 
   return (
-    <SafeAreaView style={{flex: 1}}>{switchScreen(activeScreen)}</SafeAreaView>
+    <SafeAreaView style={{ flex: 1 }}>
+      {switchScreen(activeScreen)}
+    </SafeAreaView>
   );
 };
 
