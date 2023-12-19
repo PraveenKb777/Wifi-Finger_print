@@ -12,6 +12,7 @@ import RNFS from 'react-native-fs';
 import RoomList from './src/Screens/RoomList';
 import CoorList from './src/Screens/CoorList';
 import ScanScreen from './src/Screens/ScanScreen';
+import CalibrationScreen from './src/Screens/CalibrationScreen';
 
 export const SCREENS = {
   HOME: 0,

@@ -8,18 +8,112 @@ import {
   TextInput,
   PermissionsAndroid,
   ScrollView,
+  Modal,
+  StyleSheet,
+  Dimensions,
 } from 'react-native';
 import WifiManager from 'react-native-wifi-reborn';
 import {request, PERMISSIONS} from 'react-native-permissions';
 import DeviceInfo from 'react-native-device-info';
 import CounterComponent from './PlusMinus';
 import {SCREENS} from '../../App';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ScopedStorage from 'react-native-scoped-storage';
 
 import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
+import CalibrationScreen from './CalibrationScreen';
+import {
+  SensorTypes,
+  accelerometer,
+  gyroscope,
+  magnetometer,
+  setUpdateIntervalForType,
+} from 'react-native-sensors';
 
+// TODO Calibration Screen Here
+const MAX_THRESHOLD = 65;
+const MIN_THRESHOLD = 25;
 const WifiScanner = ({coor, room, roomList, changeScreen}) => {
+  setUpdateIntervalForType(SensorTypes.magnetometer, 50);
+  setUpdateIntervalForType(SensorTypes.accelerometer, 50);
+  setUpdateIntervalForType(SensorTypes.gyroscope, 50);
+  const [calibrationData, setCalibrationData] = useState({
+    offsetX: 0,
+    offsetY: 0,
+    offsetZ: 0,
+    delX: 0,
+    delY: 0,
+    delZ: 0,
+    avgDelta: 0,
+    scaleX: 0,
+    scaleY: 0,
+    scaleZ: 0,
+    hardCorrectedX: [],
+    hardCorrectedY: [],
+    hardCorrectedZ: [],
+  });
+  const magRef = useRef({x: 0, y: 0, z: 0});
+  const accRef = useRef({x: 0, y: 0, z: 0});
+  const gyroRef = useRef({x: 0, y: 0, z: 0});
+  const maxMagInaccurate = useRef(0);
+  const intervalRef = useRef(null);
+  const absMagData = (val = {x: 0, y: 0, z: 0}) => {
+    return Math.sqrt(val.x ** 2 + val.y ** 2 + val.z ** 2);
+  };
+
+  const calCalibiratedData = (
+    val = {x: 0, y: 0, z: 0},
+    calData = calibrationData,
+  ) => {
+    const correctedX = (val.x - calData.offsetX) * calData.scaleX;
+    const correctedY = (val.y - calData.offsetY) * calData.scaleY;
+    const correctedZ = (val.z - calData.offsetZ) * calData.scaleZ;
+
+    return {x: correctedX, y: correctedY, z: correctedZ};
+  };
+
+  const magSub = () => {
+    let subscribeMag = magnetometer.subscribe(({x, y, z, timestamp}) => {
+      // calibrationData
+      const correctedData = calCalibiratedData({x, y, z});
+      const absCurrent = absMagData(correctedData);
+      if (absCurrent > MAX_THRESHOLD || absCurrent < MIN_THRESHOLD) {
+        maxMagInaccurate.current += 1;
+        subscribeMag.unsubscribe();
+        return;
+      } else {
+        maxMagInaccurate.current = 0;
+      }
+
+      if (maxMagInaccurate.current >= 20) {
+        clearInterval(intervalRef.current);
+        setCalPopUp(true);
+      }
+
+      magRef.current = {x, y, z, correctedData, absCurrent};
+      subscribeMag.unsubscribe();
+    });
+    let subscribeAcc = accelerometer.subscribe(({x, y, z, timestamp}) => {
+      accRef.current = {x, y, z};
+      subscribeAcc.unsubscribe();
+    });
+    let subscribeGyro = gyroscope.subscribe(({x, y, z, timestamp}) => {
+      gyroRef.current = {x, y, z};
+      subscribeGyro.unsubscribe();
+    });
+
+    console.log({
+      calibrationData,
+      mag: magRef.current,
+      acc: accRef.current,
+      gyro: gyroRef.current,
+      timestamp: Date.now() / 1000,
+    });
+  };
+
+  useEffect(() => {}, []);
+
   const [wifiList, setWifiList] = useState([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isCreate, setIsCreate] = useState(true);
@@ -43,6 +137,15 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
     setFinalCoor(coor);
   }, []);
 
+  const checkStorage = async () => {
+    const item = await AsyncStorage.getItem('calData');
+    if (item) {
+      setCalibrationData(JSON.parse(item));
+    } else {
+      setCalPopUp(true);
+    }
+  };
+
   const requestLocationPermission = async () => {
     try {
       const granted = await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
@@ -57,6 +160,9 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
   };
 
   const firstRender = useRef(true);
+  useEffect(() => {
+    checkStorage();
+  }, []);
 
   useEffect(() => {
     let timer;
@@ -152,6 +258,15 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
   const [action, setAction] = useState('');
   const [fileName, setFileName] = useState('');
   const [selectedFolderPath, setSelectedFolderPath] = useState('');
+  const [calPopUp, setCalPopUp] = useState(false);
+  const [calibration, setCalibration] = useState(false);
+
+  const calFun = async data => {
+    setCalibrationData(data);
+    setCalibration(false);
+    setCalPopUp(false);
+    await AsyncStorage.setItem('calData', JSON.stringify(data));
+  };
 
   const handleFileSelection = async () => {
     try {
@@ -233,21 +348,43 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
     }
   };
 
+  const calculateAbs = (obj = {x: 0, y: 0, z: 0}) => {};
+
   return (
     <>
+      <Button
+        title="Clibration"
+        onPress={() => {
+          setCalPopUp(true);
+        }}
+        disabled={onscanning}
+      />
       <View style={{flex: 1}}>
         <CounterComponent value={count} changeFunction={setCount} />
         <View style={{paddingHorizontal: 70}}>
-          <Button
+          {/* <Button
             title="Scan Wi-Fi"
             onPress={() => setIsScanning(true)}
             disabled={onscanning}
-          />
+          /> */}
         </View>
         <View style={{paddingHorizontal: 70}}>
           <Button
             title="Create a file"
             onPress={handleFileSelection}
+            disabled={onscanning}
+          />
+          <Button
+            title="Start Scan"
+            onPress={() => {
+              intervalRef.current = setInterval(() => {
+                magSub();
+              }, 200);
+
+              setTimeout(() => {
+                clearInterval(intervalRef.current);
+              }, 10000);
+            }}
             disabled={onscanning}
           />
         </View>
@@ -268,7 +405,7 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
 
         {isScanning || (onscanning && <Text>Scanning...</Text>)}
         <ScrollView style={{flex: 1}}>
-          <Text>Available Wi-Fi Networks:</Text>
+          {/* <Text>Available Wi-Fi Networks:</Text> */}
           {wifiList.map((wifi, index) => (
             <Text key={index}>{wifi}</Text>
           ))}
@@ -297,8 +434,47 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
           </Text>
         </View>
       )}
+      <Modal visible={calPopUp} transparent>
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <Button
+              title="Can we Calibrate"
+              onPress={() => setCalibration(true)}
+            />
+          </View>
+        </View>
+      </Modal>
+      {calibration && (
+        <CalibrationScreen visible={calibration} returnFun={calFun} />
+      )}
     </>
   );
 };
+const {height, width} = Dimensions.get('window');
+const styles = StyleSheet.create({
+  centeredView: {
+    height,
+    width,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#00000080',
+    zIndex: 10,
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+});
 
 export default WifiScanner;
