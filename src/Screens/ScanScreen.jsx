@@ -38,6 +38,24 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
   setUpdateIntervalForType(SensorTypes.magnetometer, 50);
   setUpdateIntervalForType(SensorTypes.accelerometer, 50);
   setUpdateIntervalForType(SensorTypes.gyroscope, 50);
+  const [finalScanList, setFinalScanList] = useState([]);
+  const [deviceDate, setDeviceData] = useState({});
+
+  const [wifiList, setWifiList] = useState([]);
+  const [isScanning, setIsScanning] = useState(false);
+  const [isCreate, setIsCreate] = useState(true);
+  const [count, setCount] = useState(0);
+  const [onscanning, setOnScanning] = useState(false);
+  const [finalCoor, setFinalCoor] = useState({
+    Coordinate_Unique_ID: '',
+    Grid_Point: ['x', 'y'],
+    Room_Unique_ID: '3',
+  });
+  const [roomDetails, setRoomDetails] = useState({
+    Room_Unique_ID: '',
+    Room: '',
+  });
+
   const [calibrationData, setCalibrationData] = useState({
     offsetX: 0,
     offsetY: 0,
@@ -53,7 +71,13 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
     hardCorrectedY: [],
     hardCorrectedZ: [],
   });
-  const magRef = useRef({x: 0, y: 0, z: 0});
+  const magRef = useRef({
+    x: 0,
+    y: 0,
+    z: 0,
+    correctedData: {x: 0, y: 0, z: 0},
+    absCurrent: 0,
+  });
   const accRef = useRef({x: 0, y: 0, z: 0});
   const gyroRef = useRef({x: 0, y: 0, z: 0});
   const maxMagInaccurate = useRef(0);
@@ -75,6 +99,7 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
 
   const magSub = () => {
     let subscribeMag = magnetometer.subscribe(({x, y, z, timestamp}) => {
+      console.log('>>>>', x, y, z);
       // calibrationData
       const correctedData = calCalibiratedData({x, y, z});
       const absCurrent = absMagData(correctedData);
@@ -91,7 +116,8 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
         setCalPopUp(true);
       }
 
-      magRef.current = {x, y, z, correctedData, absCurrent};
+      magRef.current = {...magRef.current, x, y, z, correctedData, absCurrent};
+      console.log('>>>:', {x, y, z, correctedData, absCurrent});
       subscribeMag.unsubscribe();
     });
     let subscribeAcc = accelerometer.subscribe(({x, y, z, timestamp}) => {
@@ -103,32 +129,41 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
       subscribeGyro.unsubscribe();
     });
 
-    console.log({
-      calibrationData,
-      mag: magRef.current,
-      acc: accRef.current,
-      gyro: gyroRef.current,
-      timestamp: Date.now() / 1000,
-    });
+    if (
+      magRef.current.x === 0 &&
+      magRef.current.y === 0 &&
+      magRef.current.z === 0
+    ) {
+      console.log(magRef.current);
+      console.log('gone here');
+    } else {
+      // 'deviceId,timestamp,x,y,RoomId,RoomName,CoorId,acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z, mag_ori_x, mag_ori_y, mag_ori_z, mag_cor_x, mag_cor_y, mag_cor_z, absolute' +
+      console.log('gone in');
+      let listData = `${deviceDate?.modal + deviceDate?.uId},${
+        Date.now() / 1000
+      },${finalCoor.Grid_Point[0]},${finalCoor.Grid_Point[1]},${
+        roomDetails.Room_Unique_ID
+      },${roomDetails.Room},${finalCoor.Coordinate_Unique_ID},${
+        accRef.current.x
+      },${accRef.current.y},${accRef.current.z},${gyroRef.current.x},${
+        gyroRef.current.y
+      },${gyroRef.current.z},${magRef.current.x},${magRef.current.y},${
+        magRef.current.z
+      },${magRef.current.correctedData?.x},${magRef.current.correctedData?.y},${
+        magRef.current.correctedData?.z
+      },${magRef.current.absCurrent}`;
+      console.log({
+        mag: magRef.current,
+        gyroRef: gyroRef.current,
+        accRef: accRef.current,
+      });
+      setFinalScanList(e => {
+        return [...e, listData];
+      });
+    }
   };
 
   useEffect(() => {}, []);
-
-  const [wifiList, setWifiList] = useState([]);
-  const [isScanning, setIsScanning] = useState(false);
-  const [isCreate, setIsCreate] = useState(true);
-  const [count, setCount] = useState(0);
-  const [deviceDate, setDeviceData] = useState({});
-  const [onscanning, setOnScanning] = useState(false);
-  const [finalCoor, setFinalCoor] = useState({
-    Coordinate_Unique_ID: '',
-    Grid_Point: ['x', 'y'],
-    Room_Unique_ID: '3',
-  });
-  const [roomDetails, setRoomDetails] = useState({
-    Room_Unique_ID: '',
-    Room: '',
-  });
 
   useEffect(() => {
     const roomMain = roomList.filter(e => e.Room_Unique_ID === room);
@@ -159,36 +194,36 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
     }
   };
 
-  const firstRender = useRef(true);
+  // const firstRender = useRef(true);
   useEffect(() => {
     checkStorage();
   }, []);
 
-  useEffect(() => {
-    let timer;
-    let timeout;
-    if (!firstRender.current) {
-      if (isScanning) {
-        scanWifiNetworks();
-        timer = setInterval(() => {
-          scanWifiNetworks();
-        }, 30000);
+  // useEffect(() => {
+  //   let timer;
+  //   let timeout;
+  //   if (!firstRender.current) {
+  //     if (isScanning) {
+  //       scanWifiNetworks();
+  //       timer = setInterval(() => {
+  //         scanWifiNetworks();
+  //       }, 30000);
 
-        timeout = setTimeout(() => {
-          clearInterval(timer);
-          timer = null;
-          setIsScanning(false);
-        }, count * 60 * 1000);
-      }
-    } else {
-      firstRender.current = false;
-    }
+  //       timeout = setTimeout(() => {
+  //         clearInterval(timer);
+  //         timer = null;
+  //         setIsScanning(false);
+  //       }, count * 60 * 1000);
+  //     }
+  //   } else {
+  //     firstRender.current = false;
+  //   }
 
-    return () => {
-      clearInterval(timer);
-      clearTimeout(timeout);
-    };
-  }, [isScanning]);
+  //   return () => {
+  //     clearInterval(timer);
+  //     clearTimeout(timeout);
+  //   };
+  // }, [isScanning]);
 
   useEffect(() => {
     getDeviceId();
@@ -205,29 +240,33 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
 
   const scanWifiNetworks = async () => {
     console.log('called');
-    try {
-      await requestLocationPermission();
-      setOnScanning(true);
+    // // Wifi scaning
+    // try {
+    //   await requestLocationPermission();
+    //   setOnScanning(true);
 
-      const wifiArray = await WifiManager.reScanAndLoadWifiList();
-      const date = new Date();
-      const finalWifiList = wifiArray.map(e => {
-        let a = `${deviceDate?.modal + deviceDate?.uId},${
-          finalCoor.Grid_Point[0]
-        },${finalCoor.Grid_Point[1]},${e.SSID},${e.BSSID},${e.level},${
-          e.frequency
-        },${date},${roomDetails.Room_Unique_ID},${roomDetails.Room},${
-          finalCoor.Coordinate_Unique_ID
-        }`;
-        return a;
-      });
-      setWifiList(e => [...e, ...finalWifiList]);
-      setOnScanning(false);
-      console.log('finished');
-    } catch (error) {
-      console.error('Error scanning for Wi-Fi networks:', error);
-    } finally {
-    }
+    //   const wifiArray = await WifiManager.reScanAndLoadWifiList();
+    //   const date = new Date();
+    //   const finalWifiList = wifiArray.map(e => {
+    //     let a = `${deviceDate?.modal + deviceDate?.uId},${
+    //       finalCoor.Grid_Point[0]
+    //     },${finalCoor.Grid_Point[1]},${e.SSID},${e.BSSID},${e.level},${
+    //       e.frequency
+    //     },${date},${roomDetails.Room_Unique_ID},${roomDetails.Room},${
+    //       finalCoor.Coordinate_Unique_ID
+    //     }`;
+    //     return a;
+    //   });
+    //   setWifiList(e => [...e, ...finalWifiList]);
+    //   setOnScanning(false);
+    //   console.log('finished');
+    // } catch (error) {
+    //   console.error('Error scanning for Wi-Fi networks:', error);
+    // } finally {
+    // }
+
+    try {
+    } catch (error) {}
   };
 
   useEffect(() => {
@@ -317,12 +356,13 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
       return e.name === `${fileName}.csv`;
     });
     let fileContent = '';
-    for (let i = 0; i < wifiList.length; i++) {
-      fileContent += `\n${wifiList[i]}`;
+    for (let i = 0; i < finalScanList.length; i++) {
+      fileContent += `\n${finalScanList[i]}`;
     }
     if (!isFilePresent) {
       fileContent =
-        'deviceID,x,y,SSID,BSSID,level,frequency,TimeStamp,RoomID,RoomName,Coordiante ID' +
+        'deviceId,timestamp,x,y,RoomId,RoomName,CoorId,acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z, mag_ori_x, mag_ori_y, mag_ori_z, mag_cor_x, mag_cor_y, mag_cor_z, absolute' +
+        // 'deviceId,timestamp, acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z, mag_ori_x, mag_ori_y, mag_ori_z, mag_cor_x, mag_cor_y, mag_cor_z, absolute' +
         fileContent;
     }
 
@@ -341,6 +381,7 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
         'Success',
         `File "${fileName}.csv" has been created in ${dir.uri}`,
         setWifiList([]),
+        setFinalScanList([]),
       );
     } catch (error) {
       console.error('Error creating file:', error);
@@ -348,12 +389,10 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
     }
   };
 
-  const calculateAbs = (obj = {x: 0, y: 0, z: 0}) => {};
-
   return (
     <>
       <Button
-        title="Clibration"
+        title="Calibration"
         onPress={() => {
           setCalPopUp(true);
         }}
@@ -377,13 +416,26 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
           <Button
             title="Start Scan"
             onPress={() => {
+              magRef.current = {
+                x: 0,
+                y: 0,
+                z: 0,
+                correctedData: {
+                  x: 0,
+                  y: 0,
+                  z: 0,
+                },
+                absCurrent: 0,
+              };
+              setIsScanning(true);
               intervalRef.current = setInterval(() => {
                 magSub();
               }, 200);
 
               setTimeout(() => {
                 clearInterval(intervalRef.current);
-              }, 10000);
+                setIsScanning(false);
+              }, count * 60 * 1000);
             }}
             disabled={onscanning}
           />
@@ -405,8 +457,8 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
 
         {isScanning || (onscanning && <Text>Scanning...</Text>)}
         <ScrollView style={{flex: 1}}>
-          {/* <Text>Available Wi-Fi Networks:</Text> */}
-          {wifiList.map((wifi, index) => (
+          <Text>Available Data Networks:</Text>
+          {finalScanList.map((wifi, index) => (
             <Text key={index}>{wifi}</Text>
           ))}
         </ScrollView>

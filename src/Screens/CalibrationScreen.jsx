@@ -8,7 +8,7 @@ import {
 } from 'react-native-sensors';
 
 const INTERVAL = 100;
-const TIMEOUT = 5000;
+const TIMEOUT = 30000;
 const CalibrationScreen = ({returnFun = () => {}, visible = false}) => {
   const [mag, setMag] = useState([]);
   setUpdateIntervalForType(SensorTypes.magnetometer, INTERVAL);
@@ -40,6 +40,7 @@ const CalibrationScreen = ({returnFun = () => {}, visible = false}) => {
     return (Math.max(...arr) - Math.min(...arr)) / 2;
   };
   const calc = () => {
+    console.log('>>>maglist.current', magList.current);
     // raw data
     const magX = magList.current.map(e => e.x);
     const magY = magList.current.map(e => e.y);
