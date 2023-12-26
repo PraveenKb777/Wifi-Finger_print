@@ -12,8 +12,8 @@ import RNFS from 'react-native-fs';
 import RoomList from './src/Screens/RoomList';
 import CoorList from './src/Screens/CoorList';
 import ScanScreen from './src/Screens/ScanScreen';
-import CalibrationScreen from './src/Screens/CalibrationScreen';
 
+import Compass from './src/Screens/ExpoMagnatometer';
 export const SCREENS = {
   HOME: 0,
   ROOMLIST: 1,
@@ -150,7 +150,10 @@ const JsonReader = () => {
   };
 
   return (
-    <SafeAreaView style={{flex: 1}}>{switchScreen(activeScreen)}</SafeAreaView>
+    <SafeAreaView style={{flex: 1}}>
+      <Compass />
+      {switchScreen(activeScreen)}
+    </SafeAreaView>
   );
 };
 
