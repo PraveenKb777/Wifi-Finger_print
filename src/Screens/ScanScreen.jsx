@@ -30,12 +30,16 @@ import {
   magnetometer,
   setUpdateIntervalForType,
 } from 'react-native-sensors';
+import {Magnetometer, MagnetometerUncalibrated} from 'expo-sensors';
+import moment from 'moment';
 
 // TODO Calibration Screen Here
 const MAX_THRESHOLD = 65;
 const MIN_THRESHOLD = 25;
 const WifiScanner = ({coor, room, roomList, changeScreen}) => {
-  setUpdateIntervalForType(SensorTypes.magnetometer, 50);
+  Magnetometer.setUpdateInterval(16);
+  MagnetometerUncalibrated.setUpdateInterval(16);
+  // setUpdateIntervalForType(SensorTypes.magnetometer, 50);
   setUpdateIntervalForType(SensorTypes.accelerometer, 50);
   setUpdateIntervalForType(SensorTypes.gyroscope, 50);
   const [finalScanList, setFinalScanList] = useState([]);
@@ -78,6 +82,7 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
     correctedData: {x: 0, y: 0, z: 0},
     absCurrent: 0,
   });
+  const magUnCalRef = useRef({x: 0, y: 0, z: 0});
   const accRef = useRef({x: 0, y: 0, z: 0});
   const gyroRef = useRef({x: 0, y: 0, z: 0});
   const maxMagInaccurate = useRef(0);
@@ -98,14 +103,14 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
   };
 
   const magSub = () => {
-    let subscribeMag = magnetometer.subscribe(({x, y, z, timestamp}) => {
-      console.log('>>>>', x, y, z);
+    let subscribeMag = Magnetometer.addListener(({x, y, z}) => {
+      // console.log('>>>>', x, y, z);
       // calibrationData
       const correctedData = calCalibiratedData({x, y, z});
       const absCurrent = absMagData(correctedData);
       if (absCurrent > MAX_THRESHOLD || absCurrent < MIN_THRESHOLD) {
         maxMagInaccurate.current += 1;
-        subscribeMag.unsubscribe();
+        subscribeMag.remove();
         return;
       } else {
         maxMagInaccurate.current = 0;
@@ -117,8 +122,8 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
       }
 
       magRef.current = {...magRef.current, x, y, z, correctedData, absCurrent};
-      console.log('>>>:', {x, y, z, correctedData, absCurrent});
-      subscribeMag.unsubscribe();
+      // console.log('>>>:', {x, y, z, correctedData, absCurrent});
+      subscribeMag.remove();
     });
     let subscribeAcc = accelerometer.subscribe(({x, y, z, timestamp}) => {
       accRef.current = {x, y, z};
@@ -128,35 +133,40 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
       gyroRef.current = {x, y, z};
       subscribeGyro.unsubscribe();
     });
-
+    let subMagUncal = MagnetometerUncalibrated.addListener(some => {
+      magUnCalRef.current = some;
+    });
     if (
       magRef.current.x === 0 &&
       magRef.current.y === 0 &&
       magRef.current.z === 0
     ) {
-      console.log(magRef.current);
-      console.log('gone here');
+      // console.log(magRef.current);
+      // console.log('gone here');
     } else {
-      // 'deviceId,timestamp,x,y,RoomId,RoomName,CoorId,acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z, mag_ori_x, mag_ori_y, mag_ori_z, mag_cor_x, mag_cor_y, mag_cor_z, absolute' +
-      console.log('gone in');
-      let listData = `${deviceDate?.modal + deviceDate?.uId},${
-        Date.now() / 1000
-      },${finalCoor.Grid_Point[0]},${finalCoor.Grid_Point[1]},${
-        roomDetails.Room_Unique_ID
-      },${roomDetails.Room},${finalCoor.Coordinate_Unique_ID},${
-        accRef.current.x
-      },${accRef.current.y},${accRef.current.z},${gyroRef.current.x},${
-        gyroRef.current.y
-      },${gyroRef.current.z},${magRef.current.x},${magRef.current.y},${
-        magRef.current.z
-      },${magRef.current.correctedData?.x},${magRef.current.correctedData?.y},${
-        magRef.current.correctedData?.z
-      },${magRef.current.absCurrent}`;
-      console.log({
-        mag: magRef.current,
-        gyroRef: gyroRef.current,
-        accRef: accRef.current,
-      });
+      // 'deviceId,timestamp,x,y,RoomId,RoomName,CoorId,acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z, mag_ori_x,
+      //          mag_ori_y, mag_ori_z, mag_cor_x, mag_cor_y, mag_cor_z,mag_un_cal_x,mag_un_cal_y,mag_un_cal_z,absolute' +
+      // console.log('gone in');
+      let listData = `${deviceDate?.modal + deviceDate?.uId},${moment()},${
+        finalCoor.Grid_Point[0]
+      },${finalCoor.Grid_Point[1]},${roomDetails.Room_Unique_ID},${
+        roomDetails.Room
+      },${finalCoor.Coordinate_Unique_ID},${accRef.current.x},${
+        accRef.current.y
+      },${accRef.current.z},${gyroRef.current.x},${gyroRef.current.y},${
+        gyroRef.current.z
+      },${magRef.current.x},${magRef.current.y},${magRef.current.z},${
+        magRef.current.correctedData?.x
+      },${magRef.current.correctedData?.y},${magRef.current.correctedData?.z},${
+        magUnCalRef.current.x
+      },${magUnCalRef.current.y},${magUnCalRef.current.z},${
+        magRef.current.absCurrent
+      }`;
+      // console.log({
+      //   mag: magRef.current,
+      //   gyroRef: gyroRef.current,
+      //   accRef: accRef.current,
+      // });
       setFinalScanList(e => {
         return [...e, listData];
       });
@@ -331,7 +341,7 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
     try {
       // Use DocumentPicker to select a folder where the file should be saved
       dir = await ScopedStorage.openDocumentTree(true);
-      console.log('>>>>', dir.uri);
+      // console.log('>>>>', dir.uri);
       if (dir.uri) {
         setSelectedFolderPath(dir.uri);
       } else {
@@ -350,7 +360,7 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
     }
 
     let fileList = await ScopedStorage.listFiles(dir.uri);
-    console.log(fileList);
+    // console.log(fileList);
 
     let isFilePresent = fileList.find(e => {
       return e.name === `${fileName}.csv`;
@@ -361,11 +371,11 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
     }
     if (!isFilePresent) {
       fileContent =
-        'deviceId,timestamp,x,y,RoomId,RoomName,CoorId,acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z, mag_ori_x, mag_ori_y, mag_ori_z, mag_cor_x, mag_cor_y, mag_cor_z, absolute' +
+        'deviceId,timestamp,x,y,RoomId,RoomName,CoorId,acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z, mag_ori_x, mag_ori_y, mag_ori_z, mag_cor_x, mag_cor_y, mag_cor_z,mag_un_cal_x,mag_un_cal_y,mag_un_cal_z,absolute' +
         // 'deviceId,timestamp, acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z, mag_ori_x, mag_ori_y, mag_ori_z, mag_cor_x, mag_cor_y, mag_cor_z, absolute' +
         fileContent;
     }
-
+    // console.log(fileContent);
     // Perform your file creation logic here, e.g., write file content using RNFS
     try {
       await ScopedStorage.writeFile(

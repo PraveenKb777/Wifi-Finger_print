@@ -6,6 +6,7 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
+  NativeModules,
 } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
@@ -13,7 +14,10 @@ import RoomList from './src/Screens/RoomList';
 import CoorList from './src/Screens/CoorList';
 import ScanScreen from './src/Screens/ScanScreen';
 
-import Compass from './src/Screens/ExpoMagnatometer';
+import {
+  DeviceEventEmitter, // will emit events that you can listen to
+} from 'react-native';
+import Compass from './src/Screens/Compass';
 export const SCREENS = {
   HOME: 0,
   ROOMLIST: 1,
@@ -23,11 +27,24 @@ export const SCREENS = {
 };
 
 const JsonReader = () => {
+  const {SensorManager} = NativeModules;
+  useEffect(() => {
+    SensorManager.startOrientation(10000);
+    DeviceEventEmitter.addListener('Orientation', function (data) {
+      console.log(data.R);
+    });
+    return () => {
+      SensorManager.stopOrientation();
+      DeviceEventEmitter.removeAllListeners();
+    };
+  }, []);
+  DeviceEventEmitter.addListener('Orientation', function (data) {
+    console.log(data.R);
+  });
   const [jsonData, setJsonData] = useState(null);
   const [activeScreen, setActiveScreen] = useState(SCREENS.HOME);
 
   const [selectedRoom, setSelectedRoom] = useState('');
-
   const [setselectedRoomCoor, setSetselectedRoomCoor] = useState([]);
   const [setselectedFinalCoor, setSetselectedFinalCoor] = useState({
     Coordinate_Unique_ID: '',
@@ -151,7 +168,7 @@ const JsonReader = () => {
 
   return (
     <SafeAreaView style={{flex: 1}}>
-      <Compass />
+      {/* <Compass /> */}
       {switchScreen(activeScreen)}
     </SafeAreaView>
   );
