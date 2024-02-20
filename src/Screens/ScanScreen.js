@@ -105,17 +105,46 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
 
       const wifiArray = await WifiManager.reScanAndLoadWifiList();
       const date = new Date();
-      const finalWifiList = wifiArray.map(e => {
-        let a = `${deviceDate?.modal + deviceDate?.uId},${
-          finalCoor.Grid_Point[0]
-        },${finalCoor.Grid_Point[1]},${e.SSID},${e.BSSID},${e.level},${
-          e.frequency
-        },${date},${roomDetails.Room_Unique_ID},${roomDetails.Room},${
-          finalCoor.Coordinate_Unique_ID
-        }`;
-        return a;
-      });
-      setWifiList(e => [...e, ...finalWifiList]);
+      let newWifiMerge = `${deviceDate?.modal + deviceDate?.uId},${
+        finalCoor.Grid_Point[0]
+      },${finalCoor.Grid_Point[1]},${finalCoor.Coordinate_Unique_ID},${
+        roomDetails.Room
+      },${roomDetails.Room_Unique_ID},`;
+      const SSID = [
+        'CENDROL SERVER 5G',
+        'CENDROL 4TH FLOOR 5G',
+        'Cendrol 5Ghz',
+        'RAK',
+      ];
+
+      for (const i of SSID) {
+        let found = false;
+        for (const j of wifiArray) {
+          if (j.SSID === i) {
+            found = true;
+            newWifiMerge += `${j.BSSID},${j.frequency},${j.level},`;
+
+            break;
+          }
+        }
+        if (!found) {
+          newWifiMerge = '';
+        }
+      }
+
+      // const finalWifiList = wifiArray.map(e => {
+      //   // deviceID, x, y, coordinateID, roomname, roomID, server5g_BSSID, server5g_freq, server5g_level, 4thfloor_BSSID, 4thfloor_freq, 4thfloor_level, 5ghz_BSSID,  5ghz_freq, 5ghz_level, rak__BSSID, rak_freq, rak_level
+      //   let a = `${deviceDate?.modal + deviceDate?.uId},${
+      //     finalCoor.Grid_Point[0]
+      //   },${finalCoor.Grid_Point[1]},${e.SSID},${e.BSSID},${e.level},${
+      //     e.frequency
+      //   },${date},${roomDetails.Room_Unique_ID},${roomDetails.Room},${
+      //     finalCoor.Coordinate_Unique_ID
+      //   }`;
+      //   return a;
+      // });
+      setWifiList(e => [...e, newWifiMerge]);
+      console.log(wifiArray);
       setOnScanning(false);
       console.log('finished');
     } catch (error) {
@@ -207,7 +236,7 @@ const WifiScanner = ({coor, room, roomList, changeScreen}) => {
     }
     if (!isFilePresent) {
       fileContent =
-        'deviceID,x,y,SSID,BSSID,level,frequency,TimeStamp,RoomID,RoomName,Coordiante ID' +
+        'deviceID, x, y, coordinateID, roomname, roomID, server5g_BSSID, server5g_freq, server5g_level, 4thfloor_BSSID, 4thfloor_freq, 4thfloor_level, 5ghz_BSSID,  5ghz_freq, 5ghz_level, rak__BSSID, rak_freq, rak_level' +
         fileContent;
     }
 
